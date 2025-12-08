@@ -251,7 +251,7 @@ Let's run the agent with a simple prompt to analyze a first ask:
 TODO
 ```
 
-The final `main.py` file can be found in `solution/lab_1.py`.
+The final `main.py` file can be found in `solutions/lab_1.py`.
 
 Now, run your agent by opening a terminal and inside the `src` folder:
 
@@ -276,6 +276,8 @@ Now if you run your agent again:
 ```bash
 devui main.py
 ```
+
+The final `main.py` file can be found in `solutions/lab_1_bis.py`.
 
 ---
 
@@ -322,7 +324,7 @@ devui main.py
 
 You should notice that the output is now structured according to the `IssueAnalyzer` class you defined.
 
-The final `main.py` file can be found in `solution/lab_2.py`.
+The final `main.py` file can be found in `solutions/lab_2.py`.
 
 ---
 
@@ -375,7 +377,7 @@ As you can see in the `Tools` tab of Dev UI, the agent used the `calculate_time_
 
 Your IssueAnalyzerAgent is now more precise and reliable!
 
-The final `main.py` file can be found in `solution/lab_3.py`.
+The final `main.py` file can be found in `solutions/lab_3.py`.
 
 ---
 
@@ -425,7 +427,7 @@ If you ask the agent to create a ticket, it should create a new issue in your Gi
 
 IMAGE
 
-The final `main.py` file can be found in `solution/lab_4.py`.
+The final `main.py` file can be found in `solutions/lab_4.py`.
 
 ---
 
@@ -460,7 +462,7 @@ devui main.py
 
 You can now interact with the group chat workflow. The manager agent will route your requests to the appropriate agent based on the prompt.
 
-The final `main.py` file can be found in `solution/lab_5.py`.
+The final `main.py` file can be found in `solutions/lab_5.py`.
 
 ---
 
@@ -502,7 +504,7 @@ Finally, run your agent again:
 devui main.py
 ```
 
-The final `main.py` file can be found in `solution/lab_6.py`.
+The final `main.py` file can be found in `solutions/lab_6.py`.
 
 ---
 
