@@ -4,10 +4,13 @@ from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
 from agent_framework.devui import serve
 from models.issue_analyzer import IssueAnalyzer
+import logging
 
 load_dotenv()
 
+
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     settings = {
         "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
@@ -21,10 +24,12 @@ def main():
                         If the issue is a bug, analyze the stack trace and provide the likely cause and complexity level
                     """,
         name="IssueAnalyzerAgent",
-        response_format=IssueAnalyzer
-    ) 
-    
-    serve(entities=[issue_analyzer_agent], port=8090, auto_open=True, tracing_enabled=True)
+        response_format=IssueAnalyzer,
+    )
+
+    serve(
+        entities=[issue_analyzer_agent], port=8090, auto_open=True, tracing_enabled=True
+    )
 
 
 if __name__ == "__main__":

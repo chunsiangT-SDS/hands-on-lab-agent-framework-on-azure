@@ -3,11 +3,13 @@ from agent_framework.azure import AzureAIAgentClient
 from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
 from agent_framework.devui import serve
+import logging
 
 load_dotenv()
 
 def main():
-
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    
     settings = {
         "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
         "model_deployment_name": os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],

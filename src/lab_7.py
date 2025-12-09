@@ -3,7 +3,6 @@ import os
 from agent_framework.azure import AzureAIAgentClient
 from agent_framework.observability import get_tracer, setup_observability
 from agent_framework import (
-    ChatAgent,
     HostedMCPTool,
     GroupChatBuilder,
     AgentRunUpdateEvent,
@@ -16,50 +15,6 @@ from opentelemetry.trace import SpanKind
 from opentelemetry.trace.span import format_trace_id
 
 load_dotenv()
-
-
-async def create_issue_analyzer_agent(chat_client: AzureAIAgentClient) -> ChatAgent:
-    return ChatAgent(
-        chat_client=chat_client,
-        instructions="You are analyzing issues.",
-        name="IssueAnalyzerAgent",
-        response_format=IssueAnalyzer,
-    )
-
-
-async def create_ms_learn_agent(chat_client: AzureAIAgentClient) -> ChatAgent:
-    return ChatAgent(
-        chat_client=chat_client,
-        name="DocsAgent",
-        instructions="You are a helpful assistant that can help with microsoft documentation questions.",
-        tools=HostedMCPTool(
-            name="Microsoft Learn MCP",
-            url="https://learn.microsoft.com/api/mcp",
-            description="A Microsoft Learn MCP server for documentation questions",
-            approval_mode="never_require",
-        ),
-    )
-
-
-async def create_github_agent(chat_client: AzureAIAgentClient) -> ChatAgent:
-    return ChatAgent(
-        chat_client=chat_client,
-        name="GitHubAgent",
-        instructions="""
-                You are a helpful assistant that can create an issue on the user's GitHub repository.
-                To summmarize an issue, use the GitHub MCP tool. 
-            """,
-        tools=HostedMCPTool(
-            name="GitHub MCP",
-            url="https://api.githubcopilot.com/mcp",
-            description="A GitHub MCP server for GitHub interactions",
-            approval_mode="never_require",
-            # PAT token, restricting which repos the MCP Server
-            headers={
-                "Authorization": f"Bearer {os.environ['GITHUB_MCP_PAT']}",
-            },
-        ),
-    )
 
 
 async def main():

@@ -219,10 +219,13 @@ from agent_framework.azure import AzureAIAgentClient
 from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
 from agent_framework.devui import serve
+import logging
 
 load_dotenv()
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    
     ## Create the agent here
 
 if __name__ == "__main__":
