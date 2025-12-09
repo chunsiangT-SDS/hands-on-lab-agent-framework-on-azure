@@ -656,28 +656,66 @@ uv run python main.py
 
 ## Add your own knowledge base with RAG
 
-You now have a complete helpdesk solution with multiple agents working together to handle user requests. However, the GitHubAgent is doing some ticketing without really knowing your company's conventions and best practices. To improve this, you will add another source of knowledge using Retrieval-Augmented Generation (RAG) with Azure AI Search.
+You now have a complete helpdesk solution with multiple agents working together to handle user requests. However, the GitHubAgent is doing some ticketing without really knowing your company's (named Contoso) conventions and best practices. To improve this, you will add another source of knowledge using Retrieval-Augmented Generation (RAG) with your Microsoft Foundry project.
 
-Let's create an index of data using the provided script `docs_indexer.py` inside the `data` folder. This script will read all the files inside the `data/docs` folder and index them into your Azure AI Search service. This will be used as a knowledge base for the GitHubAgent.
-
-First, make sure to set the `AZURE_AI_SEARCH_ENDPOINT` environment variables in your `.env` file with the values from your deployed infrastructure.
-
-Then, run the indexer script:
+To do that, you will find a file called `create_data.py` in the `src` folder that will help you create a knowledge base using a file inside the folder `files`.
 
 ```bash
-python data/docs_indexer.py
+uv run python src/create_data.py
 ```
 
-Now, let's modify the GitHubAgent to use this knowledge base when answering user requests. Inside the creation of the GitHubAgent, add the following code to create a retriever using Azure AI Search:
+This will create a managed index for you that will be used as a knowledge base for your GitHubAgent. Look at the console output to get the vector store ID created and set the environment variable `VECTOR_STORE_ID` with this value.
+
+To see the index generated, go to your Microsoft Foundry project, select **Build** > **Data** > **Datasets** and you should see the dataset created:
+
+![Datasets](./assets/foundry-project-datasets.png)
+
+In the **Knowledge** tab, you should see the managed index made by Foundry IQ created:
+
+![Managed Index](./assets/foundry-iq-managed-index.png)
+
+Foundry IQ hide the complexity of managing a knowledge base for you, making it easy to create and maintain. You can also connect other sources of knowledge like Azure AI Search.
+
+Now, let's modify the GitHubAgent to use this knowledge base when answering user requests. Inside the creation of the GitHubAgent, add the following code to create a retrieve the data tool:
+
+First, import the necessary classes at the top of the file:
 
 ```python
-TODO
+from agent_framework import HostedFileSearchTool
 ```
 
-Then, pass this retriever to the GitHubAgent:
+Then, update the GitHubAgent creation with the `HostedFileSearchTool` and `tool_choice` parameter:
 
 ```python
-TODO
+tool_choice=ToolMode.AUTO,
+tools=[
+    HostedFileSearchTool(
+        description="Search for Contoso GitHub issues guidelines and templates in the vector store",
+        inputs=HostedVectorStoreContent(vector_store_id=os.environ["VECTOR_STORE_ID"])
+    ),
+    ... # GitHub MCP tool
+],
 ```
 
-You can run the flow again, and now the GitHubAgent will use the knowledge base to provide more accurate and relevant answers based on your company's documentation.
+also update the instructions to inform the agent about the knowledge base:
+
+```python
+instructions=f"""
+    You are a helpful assistant that can create GitHub issues following Contoso's guidelines.
+    You work on this repository: {os.environ["GITHUB_PROJECT_REPO"]}
+    
+    CRITICAL WORKFLOW:
+    1. ALWAYS use the File Search tool FIRST to search for "github issues guidelines" or "issue template" to find the proper formatting and structure
+    2. Follow the Contoso GitHub Issues Guidelines found in the vector store
+    3. Use the retrieved guidelines to format the issue properly with correct structure, labels, and format
+    4. Then use the GitHub MCP tool to create the issue with the properly formatted content
+    
+    IMPORTANT: You MUST search for guidelines BEFORE creating any issue to ensure compliance with company standards.
+""",
+```
+
+You can now run the project and test the full workflow or the GitHubAgent individually:
+
+```bash
+uv run python src/create_data.py
+```

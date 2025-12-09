@@ -1,145 +1,130 @@
-import asyncio
 import os
+from agent_framework import GroupChatBuilder, HostedMCPTool, HostedVectorStoreContent, SequentialBuilder, ToolMode, HostedFileSearchTool
 from agent_framework.azure import AzureAIAgentClient
-from agent_framework.observability import get_tracer, setup_observability
-from agent_framework import (
-    HostedMCPTool,
-    GroupChatBuilder,
-    AgentRunUpdateEvent,
-    SequentialBuilder,
-)
 from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
+from agent_framework.devui import serve
 from models.issue_analyzer import IssueAnalyzer
-from opentelemetry.trace import SpanKind
-from opentelemetry.trace.span import format_trace_id
+from tools.time_per_issue_tools import TimePerIssueTools
+import logging
 
 load_dotenv()
 
-
-async def main():
+def main():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     
-    setup_observability(
-        applicationinsights_connection_string=os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"], enable_sensitive_data=True
-    )
-
     settings = {
         "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
         "model_deployment_name": os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
         "async_credential": AzureCliCredential(),
     }
+    timePerIssueTools = TimePerIssueTools()
+    issue_analyzer_agent = AzureAIAgentClient(**settings).create_agent(
+        instructions="""
+            You are analyzing issues. 
+            If the ask is a feature request the complexity should be 'NA'.
+            If the issue is a bug, analyze the stack trace and provide the likely cause and complexity level.
 
-    with get_tracer().start_as_current_span(
-        "Sequential Workflow Scenario", kind=SpanKind.CLIENT
-    ) as current_span:
-        print(f"Trace ID: {format_trace_id(current_span.get_span_context().trace_id)}")
+            CRITICAL: You MUST use the provided tools for ALL calculations:
+            1. First determine the complexity level
+            2. Use the available tools to calculate time and cost estimates based on that complexity
+            3. Never provide estimates without using the tools first
 
-        async with (
-            AzureAIAgentClient(**settings).create_agent(
-                name="GitHubAgent",
-                instructions=f"""
-                        You are a helpful assistant that can create an issue on the user's GitHub repository based on the input provided.
-                        To create the issue, use the GitHub MCP tool.
-                        You work on this repository: {os.environ["GITHUB_PROJECT_REPO"]}
-                    """,
-                tools=HostedMCPTool(
-                    name="GitHub MCP",
-                    url="https://api.githubcopilot.com/mcp",
-                    description="A GitHub MCP server for GitHub interactions",
-                    approval_mode="never_require",
-                    # PAT token, restricting which repos the MCP Server
-                    headers={
-                        "Authorization": f"Bearer {os.environ['GITHUB_MCP_PAT']}",
-                    },
-                ),
-            ) as github_agent,
-            AzureAIAgentClient(**settings).create_agent(
-                instructions="""
-                                You are analyzing issues. 
-                                If the ask is a feature request the complexity should be 'NA'.
-                                If the issue is a bug, analyze the stack trace and provide the likely cause and complexity level
-                            """,
-                name="IssueAnalyzerAgent",
-                response_format=IssueAnalyzer,
-            ) as issue_analyzer_agent,
-            AzureAIAgentClient(**settings).create_agent(
-                name="DocsAgent",
-                instructions="""
-                    You are a helpful assistant that can help with Microsoft documentation questions.
-                    Provide accurate and concise information based on the documentation available.
-                """,
-                tools=HostedMCPTool(
-                    name="Microsoft Learn MCP",
-                    url="https://learn.microsoft.com/api/mcp",
-                    description="A Microsoft Learn MCP server for documentation questions",
-                    approval_mode="never_require",
-                ),
-            ) as ms_learn_agent,
-        ):
+            Your response should contain only values obtained from the tool calls.
+        """,
+        name="IssueAnalyzerAgent",
+        response_format=IssueAnalyzer,
+        tool_choice=ToolMode.AUTO,
+        tools=[
+            timePerIssueTools.calculate_time_based_on_complexity,
+        ],
+    )
+
+    github_agent = AzureAIAgentClient(**settings).create_agent(
+        name="GitHubAgent",
+        instructions=f"""
+            You are a helpful assistant that can create GitHub issues following Contoso's guidelines.
+            You work on this repository: {os.environ["GITHUB_PROJECT_REPO"]}
             
-  
-            group_workflow = (
-                GroupChatBuilder()
-                .set_manager(
-                    manager=AzureAIAgentClient(**settings).create_agent(
-                        name="Issue Creation Group Chat Workflow",
-                        instructions="""
-                        You are a workflow manager that helps create GitHub issues based on user input.
-                        First, analyze the input using the Issue Analyzer Agent to determine the issue type, likely cause, and complexity.
-                        If an issue requires additional information from documentation, ask other specialized agents.
-                        Finally, create a GitHub issue using the GitHub Agent with the analyzed information.
-                    """,
-                    ),
-                )
-                .participants(
-                    github_agent=github_agent, issue_analyzer_agent=issue_analyzer_agent
-                )
-                .build()
+            CRITICAL WORKFLOW:
+            1. ALWAYS use the File Search tool FIRST to search for "github issues guidelines" or "issue template" to find the proper formatting and structure
+            2. Follow the Contoso GitHub Issues Guidelines found in the vector store
+            3. Use the retrieved guidelines to format the issue properly with correct structure, labels, and format
+            4. Then use the GitHub MCP tool to create the issue with the properly formatted content
+            
+            IMPORTANT: You MUST search for guidelines BEFORE creating any issue to ensure compliance with company standards.
+        """,
+        tool_choice=ToolMode.AUTO,
+        tools=[
+            HostedFileSearchTool(
+                description="Search for Contoso GitHub issues guidelines and templates in the vector store",
+                inputs=HostedVectorStoreContent(vector_store_id=os.environ["VECTOR_STORE_ID"])
+            ),
+            HostedMCPTool(
+                name="GitHub MCP",
+                url="https://api.githubcopilot.com/mcp",
+                description="A GitHub MCP server for GitHub interactions",
+                approval_mode="never_require",
+                # PAT token, restricting which repos the MCP Server
+                headers={
+                    "Authorization": f"Bearer {os.environ['GITHUB_MCP_PAT']}",
+                },
             )
+        ]
 
-            group_workflow_agent = group_workflow.as_agent(
-                name="GroupChatWorkflowAgent"
-            )
-            workflow = (
-                SequentialBuilder()
-                .participants([ms_learn_agent, group_workflow_agent])
-                .build()
-            )
+    )
 
-            task = """An issue in my Azure App Services is causing intermittent 500 errors. 
-                        Traceback (most recent call last):
-                                    File "<string>", line 38, in <module>
-                                        main_application()                    ← Entry point
-                                    File "<string>", line 30, in main_application
-                                        results = process_data_batch(test_data)  ← Calls processor
-                                    File "<string>", line 13, in process_data_batch
-                                        avg = calculate_average(batch)        ← Calls calculator
-                                    File "<string>", line 5, in calculate_average
-                                        return total / count                  ← ERROR HERE
-                                            ~~~~~~^~~~~~~
-                                    ZeroDivisionError: division by zero"""
+    ms_learn_agent = AzureAIAgentClient(**settings).create_agent(
+        name="DocsAgent",
+        instructions="""
+            You are a helpful assistant that can help with Microsoft documentation questions.
+            Provide accurate and concise information based on the documentation available.
+        """,
+        tools=HostedMCPTool(
+            name="Microsoft Learn MCP",
+            url="https://learn.microsoft.com/api/mcp",
+            description="A Microsoft Learn MCP server for documentation questions",
+            approval_mode="never_require",
+        ),
+    )
 
-            print("\nStarting Group Chat Workflow...\n")
-            print(f"Input: {task}\n")
+    group_workflow = (
+        GroupChatBuilder()
+        .set_manager(
+            manager=AzureAIAgentClient(**settings).create_agent(
+                name="Issue Creation Group Chat Workflow",
+                instructions="""
+                    You are a workflow manager that helps create GitHub issues based on user input following Contoso's standards.
+                    
+                    WORKFLOW STEPS:
+                    1. First, analyze the input using the Issue Analyzer Agent to determine the issue type, likely cause, and complexity
+                    2. For GitHub issue creation, ALWAYS instruct the GitHub Agent to:
+                       - Search for guidelines FIRST using the File Search tool
+                       - Follow the retrieved Contoso guidelines for proper formatting
+                       - Create the issue using the GitHub MCP tool with the proper structure
+                    3. If additional documentation is needed, consult other specialized agents
+                    
+                    Ensure the GitHub Agent follows the company guidelines by explicitly requesting it to search for them.
+                """,
+            ),
+        )
+        .participants(
+            github_agent=github_agent, issue_analyzer_agent=issue_analyzer_agent
+        )
+        .build()
+    )
+    
+    group_workflow_agent = group_workflow.as_agent(
+        name="IssueCreationAgentGroup"
+    )
+    workflow = (
+        SequentialBuilder()
+        .participants([ms_learn_agent, group_workflow_agent])
+        .build()
+    )
 
-            try:
-                print("[Agent Framework] Group chat conversation:")
-                current_executor = None
-                async for event in workflow.run_stream(task):
-                    if isinstance(event, AgentRunUpdateEvent):
-                        # Print executor name header when switching to a new agent
-                        if current_executor != event.executor_id:
-                            if current_executor is not None:
-                                print()  # Newline after previous agent's message
-                            print(f"---------- {event.executor_id} ----------")
-                            current_executor = event.executor_id
-                        if event.data:
-                            print(event.data.text, end="", flush=True)
-                print()  # Final newline after conversation
-
-            except Exception as e:
-                print(f"Workflow execution failed: {e}")
+    serve(entities=[issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent, workflow], port=8090, auto_open=True, tracing_enabled=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
