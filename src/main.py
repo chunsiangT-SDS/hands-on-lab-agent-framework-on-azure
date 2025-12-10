@@ -71,7 +71,7 @@ async def main():
     settings = {
         "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
         "model_deployment_name": os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
-        "async_credential": AzureCliCredential(),
+        "credential": AzureCliCredential(),
     }
 
     with get_tracer().start_as_current_span(

@@ -15,7 +15,7 @@ def main():
     settings = {
         "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
         "model_deployment_name": os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
-        "async_credential": AzureCliCredential(),
+        "credential": AzureCliCredential(),
     }
     timePerIssueTools = TimePerIssueTools()
     issue_analyzer_agent = AzureAIAgentClient(**settings).create_agent(
@@ -100,7 +100,7 @@ def main():
         .build()
     )
 
-    serve(entities=[issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent, workflow], port=8090, auto_open=True, tracing_enabled=True)
+    serve(entities=[issue_analyzer_agent, github_agent, ms_learn_agent, workflow], port=8090, auto_open=True, tracing_enabled=True)
 
 
 if __name__ == "__main__":

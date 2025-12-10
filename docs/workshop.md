@@ -209,7 +209,7 @@ The deployment should take around 5 minutes to complete.
 [vs-code]: https://code.visualstudio.com/
 [azure-function-vs-code-extension]: https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions
 [docker-desktop]: https://www.docker.com/products/docker-desktop/
-[repo-fork]: https://github.com/microsoft/hands-on-lab-agent-framework-on-azure/fork
+[repo-fork]: https://github.com/damienaicheh/hands-on-lab-agent-framework-on-azure/fork
 [git-client]: https://git-scm.com/downloads
 [github-account]: https://github.com/join
 [download-python]: https://www.python.org/downloads/
@@ -280,7 +280,7 @@ Then, let's create the first agent: IssueAnalyzerAgent, using the Agent Framewor
 settings = {
     "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
     "model_deployment_name": os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
-    "async_credential": AzureCliCredential(),
+    "credential": AzureCliCredential(),
 }
 issue_analyzer_agent = AzureAIAgentClient(**settings).create_agent(
     instructions="""
@@ -563,7 +563,7 @@ Select the GitHubAgent in the Dev UI and ask your first question:
 
 ![select-menu-devui](./assets/devui_select_menu.png)
 
-If you ask the agent to create a ticket, it should create a new issue in your GitHub repository!
+If you ask the agent to create an issue about any kind of problem, it should create a new issue in your GitHub repository!
 
 > The final `main.py` file can be found in `solutions/lab_4.py`.
 
@@ -622,7 +622,9 @@ Now, run your agent again:
 uv run python main.py
 ```
 
+Select the group chat workflow agent in the Dev UI and ask your first question:
 
+![group-orchestration-workflow](./assets/group-orchestration-workflow.png)
 
 You can now interact with the group chat workflow. The manager agent will route your requests to the appropriate agent based on the prompt.
 
@@ -683,7 +685,7 @@ workflow = (
 Update the Dev UI setup to run the sequential workflow instead of the group chat workflow:
 
 ```python
-serve(entities=[issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent, workflow], port=8090, auto_open=True, tracing_enabled=True)
+serve(entities=[issue_analyzer_agent, github_agent, ms_learn_agent, workflow], port=8090, auto_open=True, tracing_enabled=True)
 ```
 
 Finally, run your agent again:
@@ -691,6 +693,10 @@ Finally, run your agent again:
 ```bash
 uv run python main.py
 ```
+
+Select the sequential workflow agent in the Dev UI and ask your first question:
+
+![sequential-workflow-devui](./assets/sequential-orchestration-workflow.png)
 
 > The final `main.py` file can be found in `solutions/lab_6.py`.
 

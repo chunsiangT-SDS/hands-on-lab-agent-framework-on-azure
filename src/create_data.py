@@ -25,7 +25,7 @@ async def create_vector_store(
 async def main():
     async with (
         AzureCliCredential() as credential,
-        AzureAIAgentClient(async_credential=credential) as chat_client,
+        AzureAIAgentClient(credential=credential) as chat_client,
     ):
         vector_store_id = await create_vector_store(chat_client)
         print(f"Vector store created with ID: {vector_store_id}")

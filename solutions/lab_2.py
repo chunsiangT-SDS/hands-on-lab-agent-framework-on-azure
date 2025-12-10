@@ -14,7 +14,7 @@ def main():
     settings = {
         "project_endpoint": os.environ["AZURE_AI_PROJECT_ENDPOINT"],
         "model_deployment_name": os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
-        "async_credential": AzureCliCredential(),
+        "credential": AzureCliCredential(),
     }
     issue_analyzer_agent = AzureAIAgentClient(**settings).create_agent(
         instructions="""
