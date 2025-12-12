@@ -142,6 +142,7 @@ Visual Studio Code Extensions to install :
 - [github.copilot-chat][github-copilot-chat-extension]
 - [humao.rest-client][humao-rest-client-extension]
 - [ms-python.vscode-pylance][ms-python-vscode-pylance-extension]
+- [ms-vscode-remote.remote-containers][ms-vscode-remote-remote-containers-extension]
 - [charliermarsh.ruff][charliermarsh-ruff-extension]
 - [ms-python.debugpy][ms-python-debugpy-extension]
 - [hashicorp.terraform][hashicorp-terraform-extension]
