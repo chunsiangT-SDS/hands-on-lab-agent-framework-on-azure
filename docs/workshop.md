@@ -299,15 +299,15 @@ Go to [Azure Portal](https://portal.azure.com/#browse/all), inside your resource
 
 Then select `Go to Foundry portal`: 
 
+![open-foundry-project](./assets/open-foundry-project.png)
+
+You will be redirected to the home page of Microsoft Foundry Portal where you will have to copy paste the endpoint
+
 <div class="tip" data-title="Microsoft Foundry portal">
 
 > you can also directly go the portal with this : [Microsoft Foundry](https://ai.azure.com/)
 
 </div>
-
-![open-foundry-project](./assets/open-foundry-project.png)
-
-You will be redirected to the home page of Microsoft Foundry Portal where you will have to copy paste the endpoint
 
 ![foundry-project-endpoint](./assets/foundry-project-endpoint.png)
 
@@ -411,7 +411,7 @@ Also, if you look at the output, the response is always different because the mo
 <summary><strong>Information (optional): Dev ui </strong></summary>
 
 If you want to discover more about Dev UI, you can follow the official tutorial:
-https://learn.microsoft.com/en-us/agent-framework/user-guide/devui/?pivots=programming-language-python
+[Dev UI on Microsoft Learn](https://learn.microsoft.com/en-us/agent-framework/user-guide/devui/?pivots=programming-language-python)
 
 </details>
 
@@ -467,7 +467,7 @@ You should notice that the output is now structured according to the `IssueAnaly
 
 As you can see in the Dev UI, the output is now in JSON format, making it easier to parse and use in other agents or systems:
 
-[![devui-structured-output](./assets/issue_agent_tool_devui_json.png)(./assets/issue_agent_tool_devui_json.png)]
+[![devui-structured-output](./assets/issue_agent_tool_devui_json.png)](./assets/issue_agent_tool_devui_json.png)
 
 > The final `main.py` file can be found in `solutions/lab_2.py`.
 
@@ -475,7 +475,7 @@ As you can see in the Dev UI, the output is now in JSON format, making it easier
 <summary><strong>Information (optional): Structured output tutorial</strong></summary>
 
 This lab uses structured output with Pydantic models. If you want to go deeper, follow the official tutorial:
-- https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/structured-output?pivots=programming-language-python
+- [Structured output with Pydantic models on Microsoft Learn](https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/structured-output?pivots=programming-language-python)
 
 </details>
 
@@ -575,6 +575,32 @@ Your IssueAnalyzerAgent is now more precise and reliable!
 You have now a first agent to analyze issues and request of users, but to build a complete helpdesk solution, you need to add another agent responsible of adding the query as a ticket. For the purpose of this workshop, you will use your own GitHub repository as a ticketing system, using GitHub Issues.
 
 To do that, you will use the MCP GitHub tool provided by GitHub and create a new agent called GitHubAgent.
+
+<details>
+<summary><strong>Context (optional): What is MCP and why do we use it?</strong></summary>
+
+**MCP (Model Context Protocol)** is a standard way for an AI agent to connect to external capabilities.
+
+Think of it like a **USB-C dongle**:
+
+- Your laptop has one USB-C port (the agent/runtime).
+- The dongle gives you many ports (capabilities): GitHub, file systems, web search, internal services, etc.
+- Each “port” maps to **tools** that the agent can call in a structured, permissioned way.
+
+In practice, an MCP server can expose:
+
+- **Tools** (functions) like “create GitHub issue”, “list issues”, “add label”, “comment on an issue”.
+- **API wrappers** that hide authentication and request details.
+- Sometimes even **other agents or services** behind the server (the agent just calls a tool; the server decides what happens next).
+
+Purpose: keep the agent focused on reasoning, while MCP provides the safe, reusable bridge to real actions and data.
+
+If you want to go deeper:
+
+- [MCP for Beginners (GitHub)](https://github.com/microsoft/mcp-for-beginners/)
+- [MCP overview video (YouTube)](https://www.youtube.com/watch?v=VfZlglOWWZw&t=3s)
+
+</details>
 
 ### Get a GitHub PAT (Personal Access Token)
 
