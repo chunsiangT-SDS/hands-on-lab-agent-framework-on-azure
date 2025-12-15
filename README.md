@@ -6,7 +6,7 @@ Welcome to this hands-on lab! You will learn how to build agentic applications u
 
 Access the full workshop documentation: [Workshop Guide](docs/workshop.md)
 
-Or view it online: `https://aka.ms/ws?src=gh:microsoft/hands-on-lab-agent-framework-on-azure/docs/`
+Or view it online: [https://aka.ms/agf-lab](https://aka.ms/agf-lab)
 
 ## 📋 Prerequisites
 
@@ -123,5 +123,4 @@ Then run the following command to deploy the infrastructure:
 terraform apply -auto-approve
 ```
 
-Or view it online: `https://aka.ms/agf-lab`
-
+Or view it online: [https://aka.ms/agf-lab](https://aka.ms/agf-lab)
