@@ -58,6 +58,12 @@ Throughout this workshop, you will:
 
 By the end of this lab, you will have a fully functional helpdesk system where multiple AI agents collaborate to analyze issues, retrieve relevant documentation, and manage tickets automatically following company guidelines.
 
+<div class="tip" data-title="Microsoft Foundry">
+
+> Direct link: [Microsoft Foundry](https://ai.azure.com/)
+
+</div>
+
 [agent-framework-url]: https://github.com/microsoft/agent-framework
 
 ---
@@ -169,8 +175,6 @@ az account show
 # Select your Azure subscription
 az account set --subscription <subscription-id>
 
-# Set the subscription ID as an environment variable
-export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 # Register the following Azure providers if they are not already
 # Azure Cognitive Services
 az provider register --namespace 'Microsoft.CognitiveServices'
@@ -255,11 +259,12 @@ Then, rename the `.env.template` file to `.env` and update the environment varia
 
 To connect to the AI chat model you need, you will use the Microsoft Foundry project resource to connect to the deployed models.
 
-Go to Azure, inside your resource group, select the Microsoft Foundry project: 
+Go to [Azure Portal](https://portal.azure.com/#browse/all), inside your resource group, select the Microsoft Foundry project: 
 
 [![resource-group-foundry-project](./assets/resource-group-foundry-project.png)](./assets/resource-group-foundry-project.png)
 
 Then select `Go to Foundry portal`: 
+
 
 ![open-foundry-project](./assets/open-foundry-project.png)
 
