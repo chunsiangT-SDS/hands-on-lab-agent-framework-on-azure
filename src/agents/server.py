@@ -97,7 +97,7 @@ class ManualAnalyzeRequest(BaseModel):
     sentry_org: Optional[str] = Field(None, example="scor-digital-solutions")
     sentry_data_raw: Optional[str] = Field(
         None, 
-        description="Raw Sentry MCP response text (for testing without live Sentry)"
+        description="Raw Sentry MCP response text. If not provided, will fetch from Sentry API (requires SENTRY_AUTH_TOKEN)"
     )
 
 
@@ -164,6 +164,7 @@ async def health():
         "config": {
             "azure_ai": bool(os.environ.get("AZURE_AI_PROJECT_ENDPOINT")),
             "atlassian": bool(os.environ.get("ATLASSIAN_API_TOKEN")),
+            "sentry": bool(os.environ.get("SENTRY_AUTH_TOKEN")),
             "github": bool(os.environ.get("GITHUB_REPO_OWNER")),
         }
     }
@@ -266,14 +267,16 @@ async def jira_webhook(payload: JiraWebhookPayload):
             }
         }
         
-        # For now, we need the Sentry MCP response
-        # In production, this would fetch from Sentry API
-        # Return pending status for manual completion
+        # Run the multi-agent workflow - will automatically fetch from Sentry API
+        result = await process_sentry_issue(process_payload)
         
         return AnalysisResponse(
-            status="received",
-            issue_key=issue_key,
-            message=f"Jira issue {issue_key} received. Use /analyze endpoint with sentry_data_raw to complete analysis.",
+            status=result.get("status", "unknown"),
+            issue_key=result.get("issue_key", issue_key),
+            triage=result.get("triage"),
+            analysis=result.get("analysis"),
+            jira=result.get("jira"),
+            message="Analysis complete" if result.get("status") == "success" else result.get("message"),
         )
         
     except Exception as e:
@@ -286,31 +289,33 @@ async def analyze(request: ManualAnalyzeRequest):
     """
     Manual analysis trigger - use from Postman or for testing.
     
-    Example request body:
+    Example request body (with automatic Sentry fetch):
     ```json
     {
         "jira_issue_key": "MAFB-11",
-        "sentry_data_raw": "# Issue BRMS-LOCAL-1Q in **scor-digital-solutions**\\n\\n**Description**: NoMethodError..."
+        "sentry_org": "scor-digital-solutions",
+        "sentry_issue_id": "82134814"
+    }
+    ```
+    
+    Example request body (with provided Sentry data):
+    ```json
+    {
+        "jira_issue_key": "MAFB-11",
+        "sentry_data_raw": "# Issue BRMS-LOCAL-1Q..."
     }
     ```
     
     This is the main endpoint for triggering the full workflow:
-    1. Parse Sentry data
+    1. Fetch Sentry data (from API or provided)
     2. Run Triage Agent (quick severity assessment)
     3. Run Analysis Agent (root cause identification)
     4. Post concise comment to Jira
     5. Update Jira priority
     """
-    logger.info(f"🔍 Manual analysis request for {request.jira_issue_key}")
+    logger.info(f"🔍 Analysis request for {request.jira_issue_key}")
     
     try:
-        if not request.sentry_data_raw:
-            return AnalysisResponse(
-                status="error",
-                issue_key=request.jira_issue_key,
-                message="sentry_data_raw is required. Provide the Sentry MCP response text."
-            )
-        
         # Build a valid Sentry URL for extraction
         sentry_org = request.sentry_org or "org"
         sentry_id = request.sentry_issue_id or "unknown"
@@ -327,7 +332,11 @@ async def analyze(request: ManualAnalyzeRequest):
         }
         
         # Run the multi-agent workflow
-        result = await process_sentry_issue(payload, request.sentry_data_raw)
+        # If sentry_data_raw is provided, use it; otherwise, the workflow will fetch from API
+        result = await process_sentry_issue(
+            payload, 
+            sentry_mcp_response=request.sentry_data_raw  # Can be None - will trigger API fetch
+        )
         
         return AnalysisResponse(
             status=result.get("status", "unknown"),

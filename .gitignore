@@ -242,3 +242,5 @@ terraform.rc
 .terraform/*
 
 *plan.out
+
+.DS_Store

@@ -113,6 +113,182 @@ class JiraConfig:
     jira_project: str = "MAFB"
 
 
+@dataclass
+class SentryConfig:
+    """Sentry API configuration"""
+    auth_token: str = ""
+    
+    def __post_init__(self):
+        self.auth_token = os.environ.get("SENTRY_AUTH_TOKEN", "")
+    
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.auth_token)
+
+
+# =============================================================================
+# SENTRY REST API
+# =============================================================================
+
+async def fetch_sentry_issue_from_api(
+    org_slug: str,
+    issue_id: str,
+    config: Optional[SentryConfig] = None,
+    region_url: Optional[str] = None,
+) -> Optional[SentryIssueData]:
+    """
+    Fetch Sentry issue details via REST API.
+    
+    Sentry API Docs: https://docs.sentry.io/api/events/retrieve-an-issue/
+    
+    Args:
+        org_slug: Organization slug (e.g., 'scor-digital-solutions')
+        issue_id: Issue ID (numeric like '82134814' or short code like 'BRMS-LOCAL-1Q')
+        config: Sentry configuration with auth token
+        region_url: Regional API URL (e.g., 'https://de.sentry.io' for EU)
+    
+    Returns:
+        SentryIssueData or None if fetch failed
+    """
+    if config is None:
+        config = SentryConfig()
+    
+    if not config.is_configured:
+        print("  ⚠️ SENTRY_AUTH_TOKEN not configured")
+        return None
+    
+    # Use regional URL if provided, otherwise default to sentry.io
+    # For EU organizations, use https://de.sentry.io
+    # Can also be detected from SENTRY_REGION env var
+    if region_url is None:
+        region_url = os.environ.get("SENTRY_REGION_URL", "https://sentry.io")
+    
+    # Sentry API endpoint using organization slug
+    url = f"{region_url}/api/0/organizations/{org_slug}/issues/{issue_id}/"
+    
+    headers = {
+        "Authorization": f"Bearer {config.auth_token}",
+        "Content-Type": "application/json",
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            print(f"  Fetching from Sentry API: {url}")
+            response = await client.get(url, headers=headers, timeout=30.0)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return parse_sentry_api_response(data)
+            elif response.status_code == 401:
+                print(f"  ❌ Sentry API: Unauthorized - check SENTRY_AUTH_TOKEN")
+                return None
+            elif response.status_code == 404:
+                # Try alternate endpoint (direct issue lookup)
+                alt_url = f"{region_url}/api/0/issues/{issue_id}/"
+                print(f"  Trying alternate endpoint: {alt_url}")
+                alt_response = await client.get(alt_url, headers=headers, timeout=30.0)
+                if alt_response.status_code == 200:
+                    data = alt_response.json()
+                    return parse_sentry_api_response(data)
+                print(f"  ❌ Sentry API: Issue not found - {issue_id}")
+                return None
+            else:
+                print(f"  ❌ Sentry API: {response.status_code} - {response.text[:200]}")
+                return None
+                
+        except Exception as e:
+            print(f"  ❌ Sentry API error: {e}")
+            return None
+
+
+def parse_sentry_api_response(data: Dict[str, Any]) -> SentryIssueData:
+    """
+    Parse Sentry REST API response into SentryIssueData.
+    
+    API Response structure:
+    {
+        "id": "12345",
+        "shortId": "BRMS-LOCAL-1Q",
+        "title": "NoMethodError: undefined method...",
+        "culprit": "Api::V2::Sessions::PdfsController#show",
+        "platform": "ruby",
+        "count": "150",
+        "userCount": 25,
+        "firstSeen": "2025-12-09T09:09:30.000Z",
+        "lastSeen": "2025-12-18T10:00:00.000Z",
+        "status": "unresolved",
+        "metadata": {
+            "type": "NoMethodError",
+            "value": "undefined method `[]' for nil:NilClass"
+        },
+        "permalink": "https://org.sentry.io/issues/12345/",
+        ...
+    }
+    """
+    # Extract basic info
+    issue_key = data.get("shortId", data.get("id", "UNKNOWN"))
+    
+    # Build title from metadata
+    metadata = data.get("metadata", {})
+    error_type = metadata.get("type", "")
+    error_value = metadata.get("value", "")
+    title = data.get("title", f"{error_type}: {error_value}")
+    
+    # Extract counts
+    occurrences = int(data.get("count", 0))
+    users_impacted = int(data.get("userCount", 0))
+    
+    # Build error message
+    error_message = f"{error_type}: {error_value}" if error_type else title
+    
+    # Extract stacktrace from latest event if available
+    stacktrace = ""
+    if "lastEvent" in data:
+        event = data["lastEvent"]
+        stacktrace = extract_stacktrace_from_event(event)
+    
+    return SentryIssueData(
+        issue_key=issue_key,
+        title=title,
+        culprit=data.get("culprit", "Unknown"),
+        platform=data.get("platform", "unknown"),
+        occurrences=occurrences,
+        users_impacted=users_impacted,
+        first_seen=data.get("firstSeen", ""),
+        last_seen=data.get("lastSeen", ""),
+        status=data.get("status", "unknown"),
+        error_message=error_message,
+        stacktrace=stacktrace,
+        url=data.get("permalink", ""),
+    )
+
+
+def extract_stacktrace_from_event(event: Dict[str, Any]) -> str:
+    """Extract stacktrace from Sentry event data"""
+    stacktrace_lines = []
+    
+    # Try to get exception data
+    entries = event.get("entries", [])
+    for entry in entries:
+        if entry.get("type") == "exception":
+            values = entry.get("data", {}).get("values", [])
+            for exc in values:
+                frames = exc.get("stacktrace", {}).get("frames", [])
+                # Reverse to show most recent first
+                for frame in reversed(frames[-10:]):  # Last 10 frames
+                    filename = frame.get("filename", "?")
+                    lineno = frame.get("lineNo", "?")
+                    function = frame.get("function", "?")
+                    context_line = frame.get("context_line", "").strip()
+                    
+                    line = f"  at {function} ({filename}:{lineno})"
+                    if context_line:
+                        line += f"\n    {context_line}"
+                    stacktrace_lines.append(line)
+    
+    return "\n".join(stacktrace_lines)
+
+
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
@@ -574,18 +750,19 @@ async def fetch_github_code_context(
 
 async def process_sentry_issue(
     payload: Dict[str, Any],
-    sentry_mcp_response: str,
+    sentry_mcp_response: Optional[str] = None,
     github_code_context: Optional[List[CodeContext]] = None,
     fetch_github: bool = True,
 ) -> Dict[str, Any]:
     """
     Main multi-agent workflow:
-    1. Parse Sentry data
-    2. Fetch GitHub code context (Phase 3)
-    3. Run Triage Agent → Priority
-    4. Run Analysis Agent → Root cause (with code context)
-    5. Format concise comment
-    6. Update Jira
+    1. Extract Sentry URL from Jira description
+    2. Fetch Sentry data (from API or provided response)
+    3. Fetch GitHub code context (optional)
+    4. Run Triage Agent → Priority
+    5. Run Analysis Agent → Root cause
+    6. Format concise comment
+    7. Update Jira
     """
     issue_key = payload.get("issue", {}).get("key")
     description = payload.get("issue", {}).get("fields", {}).get("description", "")
@@ -601,9 +778,36 @@ async def process_sentry_issue(
         return {"status": "error", "message": "No Sentry URL found"}
     print(f"✓ Sentry URL: {sentry_info.issue_url}")
     
-    # Step 2: Parse Sentry data
-    sentry_data = parse_sentry_mcp_response(sentry_mcp_response)
+    # Step 2: Get Sentry data (either from provided response or fetch from API)
+    sentry_data = None
+    
+    if sentry_mcp_response:
+        # Use provided MCP response
+        sentry_data = parse_sentry_mcp_response(sentry_mcp_response)
+        print(f"✓ Parsed provided Sentry data")
+    else:
+        # Fetch from Sentry REST API
+        print(f"\n[Sentry API] Fetching issue details...")
+        sentry_data = await fetch_sentry_issue_from_api(
+            org_slug=sentry_info.org_slug,
+            issue_id=sentry_info.issue_id,
+        )
+        if sentry_data:
+            print(f"  ✓ Fetched from Sentry API")
+        else:
+            return {
+                "status": "error", 
+                "message": "Failed to fetch Sentry data. Ensure SENTRY_AUTH_TOKEN is configured.",
+                "sentry_info": {
+                    "org": sentry_info.org_slug,
+                    "issue_id": sentry_info.issue_id,
+                }
+            }
+    
     print(f"✓ Error: {sentry_data.title[:50]}...")
+    print(f"  Occurrences: {sentry_data.occurrences} | Users: {sentry_data.users_impacted}")
+    
+    # Step 3: Fetch GitHub code context (Phase 3)
     
     # Step 3: Fetch GitHub code context (Phase 3)
     if fetch_github and github_code_context is None:
