@@ -767,34 +767,39 @@ async def process_sentry_issue(
     issue_key = payload.get("issue", {}).get("key")
     description = payload.get("issue", {}).get("fields", {}).get("description", "")
     
-    print(f"\n{'='*60}")
-    print(f"🤖 MULTI-AGENT SENTRY ANALYSIS")
-    print(f"{'='*60}")
-    print(f"Jira: {issue_key}")
+    print(f"\n{'='*60}", flush=True)
+    print(f"🤖 MULTI-AGENT SENTRY ANALYSIS", flush=True)
+    print(f"{'='*60}", flush=True)
+    print(f"Jira: {issue_key}", flush=True)
+    print(f"Description (first 200 chars): {str(description)[:200]}", flush=True)
     
     # Step 1: Extract Sentry URL
+    print(f"[Step 1] Extracting Sentry URL...", flush=True)
     sentry_info = extract_sentry_info(description)
     if not sentry_info:
+        print(f"❌ No Sentry URL found in description", flush=True)
         return {"status": "error", "message": "No Sentry URL found"}
-    print(f"✓ Sentry URL: {sentry_info.issue_url}")
+    print(f"✓ Sentry URL: {sentry_info.issue_url}", flush=True)
     
     # Step 2: Get Sentry data (either from provided response or fetch from API)
+    print(f"[Step 2] Getting Sentry data...", flush=True)
     sentry_data = None
     
     if sentry_mcp_response:
         # Use provided MCP response
         sentry_data = parse_sentry_mcp_response(sentry_mcp_response)
-        print(f"✓ Parsed provided Sentry data")
+        print(f"✓ Parsed provided Sentry data", flush=True)
     else:
         # Fetch from Sentry REST API
-        print(f"\n[Sentry API] Fetching issue details...")
+        print(f"[Sentry API] Fetching issue details...", flush=True)
         sentry_data = await fetch_sentry_issue_from_api(
             org_slug=sentry_info.org_slug,
             issue_id=sentry_info.issue_id,
         )
         if sentry_data:
-            print(f"  ✓ Fetched from Sentry API")
+            print(f"  ✓ Fetched from Sentry API", flush=True)
         else:
+            print(f"  ❌ Failed to fetch from Sentry API", flush=True)
             return {
                 "status": "error", 
                 "message": "Failed to fetch Sentry data. Ensure SENTRY_AUTH_TOKEN is configured.",
@@ -804,51 +809,54 @@ async def process_sentry_issue(
                 }
             }
     
-    print(f"✓ Error: {sentry_data.title[:50]}...")
-    print(f"  Occurrences: {sentry_data.occurrences} | Users: {sentry_data.users_impacted}")
+    print(f"✓ Error: {sentry_data.title[:50]}...", flush=True)
+    print(f"  Occurrences: {sentry_data.occurrences} | Users: {sentry_data.users_impacted}", flush=True)
     
     # Step 3: Fetch GitHub code context (Phase 3)
-    
+    print(f"[Step 3] Fetching GitHub code context...", flush=True)
     # Step 3: Fetch GitHub code context (Phase 3)
     if fetch_github and github_code_context is None:
-        print(f"\n[GitHub] Fetching code context...")
+        print(f"[GitHub] Fetching code context...", flush=True)
         file_paths = extract_files_from_stacktrace(sentry_data.stacktrace)
         if file_paths:
-            print(f"  Files in stack trace: {file_paths}")
+            print(f"  Files in stack trace: {file_paths}", flush=True)
             github_code_context = await fetch_github_code_context(file_paths)
         else:
-            print("  No application files found in stack trace")
+            print("  No application files found in stack trace", flush=True)
+    else:
+        print("  Skipping GitHub fetch", flush=True)
     
     # Step 4: Triage Agent
-    print(f"\n[Agent 1/2] Triage...")
+    print(f"[Step 4/Agent 1/2] Triage starting...", flush=True)
     triage = await run_triage_agent(sentry_data)
-    print(f"  → Priority: {triage.priority.value} {'🚨 URGENT' if triage.is_urgent else ''}")
-    print(f"  → Reason: {triage.severity_reason}")
+    print(f"  → Priority: {triage.priority.value} {'🚨 URGENT' if triage.is_urgent else ''}", flush=True)
+    print(f"  → Reason: {triage.severity_reason}", flush=True)
     
     # Step 5: Analysis Agent (with code context)
-    print(f"\n[Agent 2/2] Analysis...")
+    print(f"[Step 5/Agent 2/2] Analysis starting...", flush=True)
     if github_code_context:
-        print(f"  Using {len(github_code_context)} file(s) for context")
+        print(f"  Using {len(github_code_context)} file(s) for context", flush=True)
     analysis = await run_analysis_agent(sentry_data, github_code_context)
-    print(f"  → Root cause: {analysis.root_cause[:60]}...")
-    print(f"  → Fix: {analysis.fix_suggestion[:60]}...")
+    print(f"  → Root cause: {analysis.root_cause[:60]}...", flush=True)
+    print(f"  → Fix: {analysis.fix_suggestion[:60]}...", flush=True)
     
     # Step 6: Format comment
+    print(f"[Step 6] Formatting Jira comment...", flush=True)
     comment = format_concise_jira_comment(sentry_data, triage, analysis)
     
     # Step 7: Update Jira
-    print(f"\n[Jira Update]")
+    print(f"[Step 7] Updating Jira...", flush=True)
     config = JiraConfig()
     
     comment_result = await add_comment_to_jira(issue_key, comment, config)
     priority_result = await update_jira_priority(issue_key, triage.priority.value, config)
     
-    print(f"  → Comment: {comment_result['status']}")
-    print(f"  → Priority: {priority_result['status']}")
+    print(f"  → Comment: {comment_result['status']}", flush=True)
+    print(f"  → Priority: {priority_result['status']}", flush=True)
     
-    print(f"\n{'='*60}")
-    print(f"✅ COMPLETE")
-    print(f"{'='*60}\n")
+    print(f"\n{'='*60}", flush=True)
+    print(f"✅ COMPLETE", flush=True)
+    print(f"{'='*60}\n", flush=True)
     
     return {
         "status": "success",
