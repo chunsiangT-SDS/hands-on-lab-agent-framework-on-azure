@@ -1,0 +1,30 @@
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: github-issue-creator-api
+    ports:
+      - "8000:8000"
+      - "18888:18888"
+      - "18889:18889"
+    env_file:
+      - src/.env
+    volumes:
+      - ./src:/app/src
+    command: uv run --directory src uvicorn api:app --reload --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+
+  devui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: github-issue-creator-devui
+    ports:
+      - "8090:8090"
+    env_file:
+      - src/.env
+    volumes:
+      - ./src:/app/src
+    command: uv run --directory src python main.py
+    restart: unless-stopped

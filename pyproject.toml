@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "agent-framework>=1.0.0b251120",
+    "agent-framework>=1.0.0b251216",
+    "agent-framework-azure-ai>=1.0.0b251216",
+    "agent-framework-devui>=1.0.0b251216",
     "azure-identity>=1.25.1",
     "fastapi>=0.125.0",
     "python-dotenv>=1.2.1",
