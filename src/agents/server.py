@@ -248,15 +248,23 @@ async def jira_webhook(payload: JiraWebhookPayload):
         issue_key = payload.issue.key
         fields = payload.issue.fields or {}
         
+        # Debug: log what fields we received
+        logger.info(f"   Fields received: {list(fields.keys())}")
+        
         # Get description to find Sentry URL
         description = fields.get("description", "")
+        
+        # Debug: log raw description type and content
+        logger.info(f"   Description type: {type(description)}")
+        logger.info(f"   Description raw (first 300): {str(description)[:300]}")
         
         # For ADF format, extract text content
         if isinstance(description, dict):
             # ADF format - extract text
+            logger.info(f"   Converting ADF to text...")
             description = extract_text_from_adf(description)
         
-        logger.info(f"   Description preview: {str(description)[:100]}...")
+        logger.info(f"   Description final: {str(description)[:200]}...")
         
         # Build payload for processing
         process_payload = {
