@@ -47,13 +47,12 @@ def create_workflow_instance():
             You are a helpful assistant that can create GitHub issues following Contoso's guidelines.
             You work on this repository: {os.environ["GITHUB_PROJECT_REPO"]}
             
-            CRITICAL WORKFLOW:
-            1. ALWAYS use the File Search tool FIRST to search for "github issues guidelines" or "issue template" to find the proper formatting and structure
-            2. Follow the Contoso GitHub Issues Guidelines found in the vector store
-            3. Use the retrieved guidelines to format the issue properly with correct structure, labels, and format
-            4. Then use the GitHub MCP tool to create the issue with the properly formatted content
+            WORKFLOW:
+            1. Use the File Search tool to find "github issues guidelines"
+            2. Follow the Contoso GitHub Issues Guidelines from the vector store
+            3. Create the issue using the GitHub MCP tool with proper formatting
             
-            IMPORTANT: You MUST search for guidelines BEFORE creating any issue to ensure compliance with company standards.
+            Keep responses concise and focused on creating the issue.
         """,
         tool_choice=ToolMode.AUTO,
         tools=[
@@ -91,24 +90,21 @@ def create_workflow_instance():
         GroupChatBuilder()
         .set_manager(
             manager=AzureAIAgentClient(**settings).create_agent(
-                name="Issue Creation Group Chat Workflow",
+                name="Issue Creation Manager",
                 instructions="""
-                    You are a workflow manager that helps create GitHub issues based on user input following Contoso's standards.
+                    You are a workflow manager for creating GitHub issues.
                     
-                    WORKFLOW STEPS:
-                    1. First, analyze the input using the Issue Analyzer Agent to determine the issue type, likely cause, and complexity
-                    2. For GitHub issue creation, ALWAYS instruct the GitHub Agent to:
-                       - Search for guidelines FIRST using the File Search tool
-                       - Follow the retrieved Contoso guidelines for proper formatting
-                       - Create the issue using the GitHub MCP tool with the proper structure
-                    3. If additional documentation is needed, consult other specialized agents
+                    WORKFLOW:
+                    1. Use Issue Analyzer Agent to determine complexity and estimates
+                    2. Use GitHub Agent to search for guidelines and create the issue
                     
-                    Ensure the GitHub Agent follows the company guidelines by explicitly requesting it to search for them.
+                    Be concise. Complete the workflow in minimum steps.
                 """,
             ),
         )
         .participants(
-            github_agent=github_agent, issue_analyzer_agent=issue_analyzer_agent
+            github_agent=github_agent, 
+            issue_analyzer_agent=issue_analyzer_agent
         )
         .build()
     )
@@ -117,11 +113,8 @@ def create_workflow_instance():
         name="IssueCreationAgentGroup"
     )
     
-    workflow = (
-        SequentialBuilder()
-        .participants([ms_learn_agent, group_workflow_agent])
-        .build()
-    )
+    # SIMPLIFIED: Use group workflow directly instead of sequential
+    workflow = group_workflow_agent
     
     return workflow, issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent
 

@@ -1,0 +1,13 @@
+[project]
+name = "hands-on-lab-agent-framework-on-azure"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "agent-framework>=1.0.0b251120",
+    "azure-identity>=1.25.1",
+    "fastapi>=0.125.0",
+    "python-dotenv>=1.2.1",
+    "uvicorn[standard]>=0.38.0",
+]
