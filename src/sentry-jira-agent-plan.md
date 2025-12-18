@@ -31,13 +31,13 @@ This document outlines the plan for building an agent workflow that automates th
                         │                                          │                                      │
                         ▼                                          ▼                                      ▼
         ┌──────────────────────────┐      ┌────────────────────────────┐      ┌──────────────────────────────┐
-        │ Step 1: Parse Sentry URL │      │ Step 2: Fetch Sentry Data  │      │ Step 3: Optional - Get Code  │
-        │ from ticket description  │      │ via Sentry MCP             │      │ Context via GitHub MCP       │
+        │ Step 1: Parse Sentry URL │      │ Step 2: Fetch Sentry Data  │      │ Step 3: Get Code Context     │
+        │ from ticket description  │      │ via Sentry MCP             │      │ via GitHub MCP               │
         │                          │      │                            │      │                              │
         │ Extract:                 │      │ - Issue details            │      │ - Find relevant code         │
-        │ • org_slug               │      │ - Stack trace              │      │ - Understand context         │
-        │ • issue_id               │      │ - Error frequency          │      │                              │
-        │ • issue_url              │      │ - Affected users (if Seer) │      │                              │
+        │ • org_slug               │      │ - Stack trace              │      │ - Retrieve file content      │
+        │ • issue_id               │      │ - Error frequency          │      │ - Understand context         │
+        │ • issue_url              │      │ - Affected users (if Seer) │      │ - Identify potential fixes   │
         └──────────────┬───────────┘      └────────────┬───────────────┘      └──────────────┬───────────────┘
                        │                               │                                      │
                        └───────────────────┬───────────┴──────────────────────┬───────────────┘
@@ -107,6 +107,7 @@ This document outlines the plan for building an agent workflow that automates th
 
 ### 1. Sentry MCP (https://mcp.sentry.dev/mcp)
 **Purpose:** Fetch detailed issue data from Sentry
+**Status:** ✅ **Required**
 
 **Key Operations:**
 - Get issue details (stack trace, error message, metadata)
@@ -114,14 +115,18 @@ This document outlines the plan for building an agent workflow that automates th
 - Get event attachments if needed
 
 ### 2. GitHub MCP
-**Purpose:** Access codebase for context
+**Purpose:** Access codebase for context and root cause analysis
+**Status:** ✅ **Required** (Essential for accurate root cause determination)
 
 **Key Operations:**
-- Search for relevant code snippets
-- Understand code context around error locations
+- Search for relevant code files from stack trace
+- Retrieve file content and surrounding context
+- Understand error location in actual code
+- Identify potential fixes in codebase
 
 ### 3. Atlassian MCP ⭐ (Primary Focus)
 **Purpose:** Update Jira tickets with analysis results
+**Status:** ✅ **Required**
 
 ---
 
@@ -288,9 +293,12 @@ result = extract_sentry_info(description)
 # {'org_slug': 'scor-digital-solutions', 'issue_id': '82134814', 'issue_url': 'https://scor-digital-solutions.sentry.io/issues/82134814'}
 ```
 
-### Phase 3: Codebase Context (Optional Enhancement)
-- [ ] Use GitHub MCP to search for relevant code
-- [ ] Provide code context to LLM for better analysis
+### Phase 3: Codebase Context (Mandatory)
+- [ ] Use GitHub MCP to search for relevant code files based on stack trace
+- [ ] Retrieve source code surrounding error locations
+- [ ] Understand code patterns, recent changes, and potential fixes
+- [ ] Provide code context to LLM for accurate root cause analysis
+- [ ] **CRITICAL:** This phase is mandatory for determining root causes
 
 ### Phase 4: Jira Integration (YOUR FOCUS)
 - [ ] Implement `getAccessibleAtlassianResources` to get `cloudId`
