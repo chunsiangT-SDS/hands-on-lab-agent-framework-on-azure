@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "Sentry-Jira Agent API",
+    "description": "AI-powered Sentry issue analysis and Jira enrichment.\n\nThis collection allows you to trigger the multi-agent workflow that:\n1. Analyzes Sentry errors with AI\n2. Posts concise analysis to Jira\n3. Updates Jira priority automatically",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "description": "Local development"
+    },
+    {
+      "key": "vm_url",
+      "value": "http://20.255.50.129:8000",
+      "description": "Azure VM production"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the server is running and configured correctly."
+          }
+        },
+        {
+          "name": "API Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Get API information and available endpoints."
+          }
+        },
+        {
+          "name": "Swagger Docs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/docs",
+              "host": ["{{base_url}}"],
+              "path": ["docs"]
+            },
+            "description": "Open interactive Swagger UI documentation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manual Analysis (Postman Testing)",
+      "item": [
+        {
+          "name": "Analyze Sentry Issue - Full Example",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jira_issue_key\": \"MAFB-11\",\n  \"sentry_org\": \"scor-digital-solutions\",\n  \"sentry_issue_id\": \"BRMS-LOCAL-1Q\",\n  \"sentry_data_raw\": \"# Issue BRMS-LOCAL-1Q in **scor-digital-solutions**\\n\\n**Description**: NoMethodError: undefined method `[]' for nil:NilClass (NoMethodError)\\n**Culprit**: Api::V2::Sessions::PdfsController#show\\n**First Seen**: 2025-12-09T09:09:30.000Z\\n**Last Seen**: 2025-12-09T09:09:30.000Z\\n**Occurrences**: 1\\n**Users Impacted**: 0\\n**Status**: unresolved\\n**Platform**: ruby\\n**URL**: https://scor-digital-solutions.sentry.io/issues/BRMS-LOCAL-1Q\\n\\n### Error\\n\\n```\\nNoMethodError: undefined method `[]' for nil:NilClass\\n\\n      rules = subset[\\\"rules\\\"] || []\\n```\\n\\n**Full Stacktrace:**\\n```\\n    from app/components/questions_component.rb:22:in `block in subsets_with_questions`\\n      rules = subset[\\\"rules\\\"] || []\\n    from app/controllers/api/v2/sessions/pdfs_controller.rb:17:in `show`\\n            serve_pdf(session_pdf)\\n    from app/models/session_pdf.rb:42:in `create_pdf`\\n        .print(session.transformed_result(:document), translations)\\n```\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["analyze"]
+            },
+            "description": "Full analysis workflow:\n1. Parses Sentry data\n2. Runs Triage Agent (priority assessment)\n3. Runs Analysis Agent (root cause)\n4. Posts comment to Jira\n5. Updates Jira priority\n\n**Required fields:**\n- `jira_issue_key`: The Jira ticket to update (e.g., MAFB-11)\n- `sentry_data_raw`: The raw Sentry MCP response text\n\n**Optional fields:**\n- `sentry_org`: Sentry organization slug\n- `sentry_issue_id`: Sentry issue ID"
+          }
+        },
+        {
+          "name": "Analyze - Minimal Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jira_issue_key\": \"MAFB-11\",\n  \"sentry_data_raw\": \"# Issue TEST-123\\n\\n**Description**: TypeError: Cannot read property 'id' of undefined\\n**Culprit**: UserController.getUser\\n**Occurrences**: 50\\n**Users Impacted**: 25\\n**Status**: unresolved\\n**Platform**: javascript\\n**URL**: https://org.sentry.io/issues/TEST-123\\n\\n### Error\\n```\\nTypeError: Cannot read property 'id' of undefined\\n    at UserController.getUser (src/controllers/user.js:45)\\n```\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["analyze"]
+            },
+            "description": "Minimal request with just the required fields."
+          }
+        },
+        {
+          "name": "Analyze - High Severity Example",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jira_issue_key\": \"MAFB-11\",\n  \"sentry_org\": \"my-org\",\n  \"sentry_issue_id\": \"CRITICAL-001\",\n  \"sentry_data_raw\": \"# Issue CRITICAL-001\\n\\n**Description**: DatabaseConnectionError: Connection pool exhausted\\n**Culprit**: PaymentService.processTransaction\\n**Occurrences**: 5000\\n**Users Impacted**: 1200\\n**Status**: unresolved\\n**Platform**: python\\n**URL**: https://my-org.sentry.io/issues/CRITICAL-001\\n\\n### Error\\n```\\nDatabaseConnectionError: Connection pool exhausted - all 100 connections in use\\n    at PaymentService.processTransaction (src/services/payment.py:89)\\n    at OrderController.checkout (src/controllers/order.py:156)\\n```\\n\\n**Full Stacktrace:**\\n```\\nTraceback (most recent call last):\\n  File \\\"src/services/payment.py\\\", line 89, in processTransaction\\n    conn = self.pool.get_connection(timeout=5)\\n  File \\\"src/db/pool.py\\\", line 45, in get_connection\\n    raise DatabaseConnectionError(\\\"Connection pool exhausted\\\")\\n```\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["analyze"]
+            },
+            "description": "Example with high-severity issue (5000 occurrences, 1200 users). Should trigger HIGH priority."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks (Automation)",
+      "item": [
+        {
+          "name": "Sentry Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"triggered\",\n  \"data\": {\n    \"event\": {\n      \"event_id\": \"abc123def456\",\n      \"project\": \"my-project\",\n      \"title\": \"NoMethodError: undefined method for nil\",\n      \"level\": \"error\",\n      \"platform\": \"ruby\",\n      \"culprit\": \"MyController#show\",\n      \"web_url\": \"https://org.sentry.io/issues/123/\"\n    },\n    \"triggered_rule\": \"High Priority Alert\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/sentry",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "sentry"]
+            },
+            "description": "Receive Sentry alert webhooks.\n\nConfigure in Sentry: Settings → Integrations → Webhooks\n\nNote: This endpoint receives the alert but requires additional Sentry data for full analysis. Use /analyze for complete workflow."
+          }
+        },
+        {
+          "name": "Jira Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"webhookEvent\": \"jira:issue_created\",\n  \"issue\": {\n    \"id\": \"92924\",\n    \"key\": \"MAFB-11\",\n    \"fields\": {\n      \"summary\": \"NoMethodError in production\",\n      \"description\": \"Sentry Issue: [BRMS-LOCAL-1Q](https://scor-digital-solutions.sentry.io/issues/82134814/)\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/jira",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "jira"]
+            },
+            "description": "Receive Jira issue webhooks.\n\nConfigure in Jira: Settings → System → Webhooks\n\nNote: This endpoint extracts the Sentry URL from the description but requires Sentry data for full analysis."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Debug",
+      "item": [
+        {
+          "name": "Raw Request (Debug)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test\": \"payload\",\n  \"any\": \"data\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/analyze/raw",
+              "host": ["{{base_url}}"],
+              "path": ["analyze", "raw"]
+            },
+            "description": "Debug endpoint - accepts any JSON and returns the keys received. Useful for testing webhook payloads."
+          }
+        }
+      ]
+    }
+  ]
+}

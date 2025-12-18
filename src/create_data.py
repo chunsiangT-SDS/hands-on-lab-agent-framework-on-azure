@@ -29,7 +29,6 @@ async def main():
     ):
         vector_store_id = await create_vector_store(chat_client)
         print(f"Vector store created with ID: {vector_store_id}")
-        print(f"test commit")
 
 
 if __name__ == "__main__":

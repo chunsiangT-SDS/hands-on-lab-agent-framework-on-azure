@@ -41,32 +41,32 @@ def create_workflow_instance():
         ],
     )
 
-    github_agent = AzureAIAgentClient(**settings).create_agent(
-        name="GitHubAgent",
+    jira_agent = AzureAIAgentClient(**settings).create_agent(
+        name="JiraAgent",
         instructions=f"""
-            You are a helpful assistant that can create GitHub issues following Contoso's guidelines.
-            You work on this repository: {os.environ["GITHUB_PROJECT_REPO"]}
+            You are a helpful assistant that can create and update Jira tickets following Contoso's guidelines.
+            You work on this project: {os.environ.get("JIRA_PROJECT_KEY", "PROJECT")}
             
             WORKFLOW:
-            1. Use the File Search tool to find "github issues guidelines"
-            2. Follow the Contoso GitHub Issues Guidelines from the vector store
-            3. Create the issue using the GitHub MCP tool with proper formatting
+            1. Use the File Search tool to find "jira ticket guidelines"
+            2. Follow the Contoso Jira Guidelines from the vector store
+            3. Create or update Jira tickets using the Atlassian MCP tool with proper formatting
             
-            Keep responses concise and focused on creating the issue.
+            Keep responses concise and focused on managing Jira tickets.
         """,
         tool_choice=ToolMode.AUTO,
         tools=[
             HostedFileSearchTool(
-                description="Search for Contoso GitHub issues guidelines and templates in the vector store",
+                description="Search for Contoso Jira ticket guidelines and templates in the vector store",
                 inputs=HostedVectorStoreContent(vector_store_id=os.environ["VECTOR_STORE_ID"])
             ),
             HostedMCPTool(
-                name="GitHub MCP",
-                url="https://api.githubcopilot.com/mcp",
-                description="A GitHub MCP server for GitHub interactions",
+                name="Atlassian MCP",
+                url="https://mcp.atlassian.com/v1/sse",
+                description="Atlassian MCP server for Jira interactions",
                 approval_mode="never_require",
                 headers={
-                    "Authorization": f"Bearer {os.environ['GITHUB_MCP_PAT']}",
+                    "Authorization": f"Bearer {os.environ.get('ATLASSIAN_API_TOKEN', '')}",
                 },
             )
         ]
@@ -90,41 +90,41 @@ def create_workflow_instance():
         GroupChatBuilder()
         .set_manager(
             manager=AzureAIAgentClient(**settings).create_agent(
-                name="Issue Creation Manager",
+                name="Ticket Creation Manager",
                 instructions="""
-                    You are a workflow manager for creating GitHub issues.
+                    You are a workflow manager for creating Jira tickets.
                     
                     WORKFLOW:
                     1. Use Issue Analyzer Agent to determine complexity and estimates
-                    2. Use GitHub Agent to search for guidelines and create the issue
+                    2. Use Jira Agent to search for guidelines and create the ticket
                     
                     Be concise. Complete the workflow in minimum steps.
                 """,
             ),
         )
         .participants(
-            github_agent=github_agent, 
+            jira_agent=jira_agent, 
             issue_analyzer_agent=issue_analyzer_agent
         )
         .build()
     )
     
     group_workflow_agent = group_workflow.as_agent(
-        name="IssueCreationAgentGroup"
+        name="JiraTicketCreationAgentGroup"
     )
     
     # SIMPLIFIED: Use group workflow directly instead of sequential
     workflow = group_workflow_agent
     
-    return workflow, issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent
+    return workflow, issue_analyzer_agent, jira_agent, ms_learn_agent, group_workflow_agent
 
 def main():
     # setup_observability()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     
-    workflow, issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent = create_workflow_instance()
+    workflow, issue_analyzer_agent, jira_agent, ms_learn_agent, group_workflow_agent = create_workflow_instance()
     
-    serve(entities=[issue_analyzer_agent, github_agent, ms_learn_agent, group_workflow_agent, workflow], 
+    serve(entities=[issue_analyzer_agent, jira_agent, ms_learn_agent, group_workflow_agent, workflow], 
           port=8090, auto_open=True, tracing_enabled=True)
 
 if __name__ == "__main__":

@@ -130,75 +130,77 @@ This document outlines the plan for building an agent workflow that automates th
 
 ---
 
-## Atlassian MCP - Jira Update Capabilities
+## Atlassian REST API v3 - Jira Update Implementation
 
-> ⚠️ **VERIFIED**: The information below was confirmed against the official Atlassian Jira REST API v3 documentation and the available MCP tools in VS Code.
+> ✅ **IMPLEMENTED**: Using Atlassian REST API v3 directly instead of MCP for faster iteration during hackathon.
+> This provides direct control over authentication (Basic Auth with email:api_token) and request/response handling.
 
 ### Available Operations for Updating Jira Tickets
 
 #### 1. Add Comment to Jira Issue
-**Tool:** `mcp_atlassian_atl_addCommentToJiraIssue`
+**Endpoint:** `POST /rest/api/3/issue/{issueKey}/comment`
 
-**Required Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `cloudId` | string | Atlassian Cloud instance UUID (get via `getAccessibleAtlassianResources`) |
-| `issueIdOrKey` | string | Jira issue ID (e.g., `10000`) or key (e.g., `PROJ-123`) |
-| `commentBody` | string | Comment content in **Markdown format** (MCP converts to ADF internally) |
+**Authentication:** Basic Auth with email:api_token (Base64 encoded)
 
-**Optional Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `commentVisibility` | object | Restrict visibility to group/role (`{type: "role", value: "Administrators"}`) |
-
-**Example Usage:**
+**Request Body (ADF - Atlassian Document Format):**
 ```json
 {
-  "cloudId": "your-cloud-id-uuid",
-  "issueIdOrKey": "PROJ-123",
-  "commentBody": "## Root Cause Analysis\n\n**Error:** NullPointerException\n\n### Potential Causes:\n1. Uninitialized variable\n2. Missing null check\n\n### Recommended Solutions:\n- Add null validation\n- Initialize default values"
-}
-```
-
-> **Note:** The underlying Jira REST API v3 uses **Atlassian Document Format (ADF)** for comment bodies, but the MCP tool accepts Markdown and converts it internally.
-
-#### 2. Edit Jira Issue (Update Priority)
-**Tool:** `mcp_atlassian_atl_editJiraIssue`
-
-**Required Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `cloudId` | string | Atlassian Cloud instance UUID |
-| `issueIdOrKey` | string | Jira issue ID or key |
-| `fields` | object | Fields to update (including priority) |
-
-**Example Usage:**
-```json
-{
-  "cloudId": "your-cloud-id-uuid",
-  "issueIdOrKey": "PROJ-123",
-  "fields": {
-    "priority": {
-      "name": "High"
-    },
-    "labels": ["sentry-analyzed", "auto-triaged"]
+  "body": {
+    "type": "doc",
+    "version": 1,
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "🔍 Automated Sentry Issue Analysis..."
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
-#### 3. Get Accessible Atlassian Resources (Prerequisite)
-**Tool:** `mcp_atlassian_atl_getAccessibleAtlassianResources`
+**Implementation:** Implemented in `sentry_jira_agent.py` as `add_comment_to_jira()`
 
-**Purpose:** Retrieve the `cloudId` required for all Jira operations
+#### 2. Edit Jira Issue (Update Priority)
+**Endpoint:** `PUT /rest/api/3/issue/{issueKey}`
 
-#### 4. Other Useful Tools
+**Implementation:** Implemented in `sentry_jira_agent.py` as `update_jira_priority()`
 
-| Tool | Description |
-|------|-------------|
-| `mcp_atlassian_atl_getJiraIssue` | Get issue details by ID/key |
-| `mcp_atlassian_atl_getTransitionsForJiraIssue` | Get available workflow transitions |
-| `mcp_atlassian_atl_transitionJiraIssue` | Transition issue to a new status |
-| `mcp_atlassian_atl_getVisibleJiraProjects` | List projects user has access to |
+**Request Body:**
+```json
+{
+  "fields": {
+    "priority": {
+      "name": "High"
+    }
+  }
+}
+```
+
+---
+
+## Appendix: MCP vs REST API Decision
+
+**Why REST API for hackathon:**
+- ✅ Simpler authentication (Basic Auth vs OAuth)
+- ✅ Direct request/response control
+- ✅ No MCP server infrastructure needed
+- ✅ Faster iteration and debugging
+- ✅ Standard HTTP tools (httpx, Postman)
+
+**MCP advantages (for future):**
+- Better abstraction layer
+- Unified tool interface
+- Better error handling
+- Standardized patterns
+
+---
+
+## Appendix: Verified MCP Tools (Reference Only)
 
 ---
 
@@ -233,20 +235,24 @@ class Complexity(Enum):
 
 ## Implementation Steps
 
-### Phase 1: Setup & Authentication
-- [ ] Configure Atlassian MCP connection
-- [ ] Configure Sentry MCP connection
-- [ ] Configure GitHub MCP connection
-- [ ] Obtain and store `cloudId` for Jira instance
-- [ ] Test basic connectivity to all MCPs
+### Phase 1: Setup & Authentication ✅ COMPLETE
+- [x] Configure Atlassian REST API v3 (with Basic Auth)
+- [x] Configure Sentry MCP connection
+- [x] Configure GitHub MCP connection
+- [x] Obtain and store `cloudId` for Jira instance (`53c4a0e6-1418-4427-8db5-d27cfe9b1751`)
+- [x] Test basic connectivity to all MCPs
+- [x] Created `config.py` with all credentials
+- [x] Created `phase_1_setup.py` test script
+- [x] **Tested Jira REST API - Successfully created issue in MAFB project**
 
-### Phase 2: Sentry Issue Analysis
-- [ ] **Extract Sentry URL from Jira description**
+### Phase 2: Sentry Issue Analysis ✅ COMPLETE
+- [x] **Extract Sentry URL from Jira description**
   - Parse description for Sentry links (regex pattern below)
   - Extract organization slug, project slug, and issue ID
-- [ ] Implement Sentry issue fetching using `analyze_issue_with_seer`
-- [ ] Extract key data: stack trace, error message, affected users, frequency
-- [ ] Use LLM to analyze and summarize the issue
+- [x] Implement Sentry issue fetching using `mcp_sentry-mcp-se_get_issue_details`
+- [x] Extract key data: stack trace, error message, affected users, frequency
+- [x] Use LLM to analyze and summarize the issue
+- [x] **Tested with real Sentry issue BRMS-LOCAL-1Q** - Full workflow working
 
 **Sentry URL Extraction Pattern:**
 
@@ -293,75 +299,124 @@ result = extract_sentry_info(description)
 # {'org_slug': 'scor-digital-solutions', 'issue_id': '82134814', 'issue_url': 'https://scor-digital-solutions.sentry.io/issues/82134814'}
 ```
 
-### Phase 3: Codebase Context (Mandatory)
-- [ ] Use GitHub MCP to search for relevant code files based on stack trace
-- [ ] Retrieve source code surrounding error locations
-- [ ] Understand code patterns, recent changes, and potential fixes
-- [ ] Provide code context to LLM for accurate root cause analysis
-- [ ] **CRITICAL:** This phase is mandatory for determining root causes
+### Phase 3: Codebase Context ✅ COMPLETE
+- [x] Extract file paths from stack trace automatically
+- [x] Use GitHub REST API to fetch source code (when configured)
+- [x] Pass code context to Analysis Agent for better accuracy
+- [x] Implemented `fetch_github_code_context()` function
+- **Config:** Set `GITHUB_REPO_OWNER` and `GITHUB_REPO_NAME` env vars to enable
 
-### Phase 4: Jira Integration (YOUR FOCUS)
-- [ ] Implement `getAccessibleAtlassianResources` to get `cloudId`
-- [ ] Implement `addCommentToJiraIssue` with structured analysis
-- [ ] Implement `editJiraIssue` to update priority
-- [ ] Design comment template/format
+### Phase 4: Jira Integration ✅ COMPLETE
+- [x] Obtained `cloudId`: `53c4a0e6-1418-4427-8db5-d27cfe9b1751`
+- [x] Implement `add_comment_to_jira()` with ADF formatting
+- [x] Implement `update_jira_priority()` via REST API
+- [x] Comment template with AI analysis, root causes, fixes, impact
+- [x] **Tested on MAFB-11** - Comment posted and priority updated successfully
 
-### Phase 5: Agent Workflow Integration
-- [ ] Create Microsoft Agent Framework workflow
-- [ ] Define trigger mechanism (HTTP webhook endpoint)
-- [ ] Chain all MCP operations together
-- [ ] Add error handling and fallbacks
+### Phase 5: Agent Workflow Integration ✅ COMPLETE
+- [x] Created `agents/sentry_jira_multi_agent.py` with Microsoft Agent Framework
+- [x] **Multi-Agent Architecture:**
+  - **Triage Agent**: Quick severity assessment → Priority + Urgency
+  - **Analysis Agent**: Root cause identification → File + Fix + Confidence
+- [x] Complete workflow: Extract URL → GitHub Context → Triage → Analysis → Jira
+- [x] **Concise L2 Format**: At-a-glance output (<10 second scan)
+- [x] Added error handling and fallbacks
+- [x] **HTTP Webhook Endpoint**: `agents/server.py` (FastAPI)
+  - `POST /analyze` - Main endpoint for Postman testing
+  - `POST /webhook/sentry` - Sentry alert receiver
+  - `POST /webhook/jira` - Jira webhook receiver
+  - `GET /health` - Health check
+- [x] **Postman Collection**: `agents/postman_collection.json`
+- [x] **User Guide**: `agents/README.md`
+
+### Phase 6: Deployment to Azure VM ⏳ PENDING
+- [ ] SSH to `mafb@20.255.50.129`
+- [ ] Clone/pull repository
+- [ ] Install dependencies (`uv sync`)
+- [ ] Configure `.env` with production credentials
+- [ ] Start server: `uv run uvicorn agents.server:app --host 0.0.0.0 --port 8000`
+- [ ] Test endpoint: `curl http://20.255.50.129:8000/health`
 
 ---
 
-## Jira Automation Setup
+## Postman Testing (Hackathon Approach)
 
-### Automation Rule Configuration
+For the hackathon, we'll use Postman to manually trigger the agent workflow instead of setting up Jira Automation. This allows for faster iteration and testing.
 
-**Rule Name:** `Trigger Sentry Analysis Agent`
+### HTTP Endpoint
 
-**When:** Issue created
+**Base URL:** `http://20.255.50.129:8000` (Azure VM)
 
-**If (conditions):**
-- Project = MAFB
-- Description contains `sentry.io` (to ensure it's a Sentry-created ticket)
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/` | GET | API info |
+| `/health` | GET | Health check |
+| `/analyze` | POST | **Main endpoint** - trigger full analysis |
+| `/webhook/sentry` | POST | Receive Sentry alerts |
+| `/webhook/jira` | POST | Receive Jira webhooks |
+| `/docs` | GET | Swagger UI |
 
-**Then (actions):**
-- Send web request (HTTP POST)
+### Request Headers
 
-### Webhook Payload Structure
+```
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN (if needed)
+```
 
-The Jira Automation will send this payload to your agent endpoint:
+### Postman Request Body
+
+Use this payload structure when testing in Postman. You can copy a real Jira ticket's description field:
 
 ```json
 {
   "webhookEvent": "jira:issue_created",
   "issue": {
-    "key": "{{issue.key}}",
-    "id": "{{issue.id}}",
+    "key": "MAFB-123",
+    "id": "10000",
     "fields": {
-      "summary": "{{issue.summary}}",
-      "description": "{{issue.description}}",
+      "summary": "High CPU usage in user authentication service",
+      "description": "Sentry Issue: [BRMS-LOCAL-1Q](https://scor-digital-solutions.sentry.io/issues/82134814/?referrer=jira_integration)",
       "priority": {
-        "name": "{{issue.priority.name}}"
+        "name": "High"
       },
       "project": {
-        "key": "{{issue.project.key}}"
+        "key": "MAFB"
       }
     }
   },
-  "timestamp": "{{now}}"
+  "timestamp": "2025-12-18T10:30:00Z"
 }
 ```
 
-### Agent Endpoint Requirements
+### Testing Steps in Postman
 
-Your agent workflow needs to expose an HTTP endpoint that:
+1. **Import the collection**: `agents/postman_collection.json`
+2. Open Postman and select "Analyze Sentry Issue - Full Example"
+3. Update the `base_url` variable:
+   - Local: `http://localhost:8000`
+   - Production: `http://20.255.50.129:8000`
+4. Click **Send**
+5. Expected response: `200 OK` with analysis results
 
-1. **Accepts POST** requests with the above payload
-2. **Responds quickly** (Jira Automation has timeout limits)
-3. **Processes asynchronously** if analysis takes > 10 seconds
-4. **Returns** `200 OK` to acknowledge receipt
+**Alternative: Manual curl test**
+```bash
+curl -X POST http://20.255.50.129:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jira_issue_key": "MAFB-11",
+    "sentry_org": "scor-digital-solutions",
+    "sentry_issue_id": "BRMS-LOCAL-1Q",
+    "sentry_data_raw": "# Issue BRMS-LOCAL-1Q\n\n**Description**: NoMethodError..."
+  }'
+```
+
+### Future: Jira Automation Rule
+
+Once the workflow is stable, this can be automated with a Jira Automation rule:
+- **When:** Issue created in MAFB
+- **If:** Description contains `sentry.io`
+- **Then:** Send HTTP POST to the endpoint above
 
 ---
 
