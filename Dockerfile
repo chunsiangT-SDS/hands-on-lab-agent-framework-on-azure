@@ -38,4 +38,4 @@ WORKDIR /app
 EXPOSE 8000 8090 18888 18889
 
 # Default command (run from src directory)
-CMD ["uv", "run", "--directory", "src", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--directory", "src", "uvicorn", "agents.server:app", "--host", "0.0.0.0", "--port", "8000"]
