@@ -251,6 +251,10 @@ async def jira_webhook(payload: JiraWebhookPayload):
         # Debug: log what fields we received
         logger.info(f"   Fields received: {list(fields.keys())}")
         
+        # Debug: log summary (title) vs description
+        summary = fields.get("summary", "")
+        logger.info(f"   Summary (title): {str(summary)[:200]}")
+        
         # Get description to find Sentry URL
         description = fields.get("description", "")
         
@@ -266,12 +270,16 @@ async def jira_webhook(payload: JiraWebhookPayload):
         
         logger.info(f"   Description final: {str(description)[:200]}...")
         
+        # Combine summary and description for Sentry URL search
+        # Sentry URL could be in either field
+        combined_text = f"{summary}\n{description}"
+        
         # Build payload for processing
         process_payload = {
             "issue": {
                 "key": issue_key,
                 "fields": {
-                    "description": description
+                    "description": combined_text
                 }
             }
         }
