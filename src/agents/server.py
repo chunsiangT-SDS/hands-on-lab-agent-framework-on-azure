@@ -171,6 +171,7 @@ async def health():
 
 
 @app.post("/webhook/sentry", response_model=AnalysisResponse)
+@app.post("/api/sentry/webhook", response_model=AnalysisResponse, include_in_schema=False)
 async def sentry_webhook(payload: SentryWebhookPayload, background_tasks: BackgroundTasks):
     """
     Handle Sentry alert webhooks.
